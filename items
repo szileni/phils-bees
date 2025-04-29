@@ -1,4 +1,4 @@
 	beehive    = { name = "beehive", label = "beehive", weight = 200, type = "item", image = 'beehive.png', unique = true, useable = true, shouldClose = true, description = nil },
 	
-	honey  = { name = "honey", label = "honey", weight = 20, type = "item", image = 'honey.png', unique = true, useable = true, shouldClose = true, description = nil },
-	honeyframe    = { name = "honeyframe", label = "honeyframe", weight = 200, type = "item", image = 'honeyframe.png', unique = true, useable = true, shouldClose = true, description = nil },
+	honey  = { name = "honey", label = "honey", weight = 20, type = "item", image = 'honey.png', unique = false, useable = true, shouldClose = true, description = nil },
+	honeyframe    = { name = "honeyframe", label = "honeyframe", weight = 200, type = "item", image = 'honeyframe.png', unique = false, useable = true, shouldClose = true, description = nil },
