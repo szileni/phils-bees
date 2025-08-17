@@ -4,8 +4,8 @@ local coordsApiaries = {}
 local collecting = false
 local beeEffects = {}
 local apiaryData = {}
-
-
+local isWearingBandana = false -- Track bandana status
+local lastBeeStingNotify = 0
 local function LoadModel(model)
     local hash = type(model) == 'string' and GetHashKey(model) or model
     if not IsModelValid(hash) then return false end
@@ -20,7 +20,6 @@ local function LoadModel(model)
     return HasModelLoaded(hash)
 end
 
-
 local function LoadAnimDict(dict)
     if not HasAnimDictLoaded(dict) then
         RequestAnimDict(dict)
@@ -32,7 +31,6 @@ local function LoadAnimDict(dict)
     end
     return HasAnimDictLoaded(dict)
 end
-
 
 local function FormatTimeRemaining(milliseconds)
     local seconds = math.floor(milliseconds / 1000)
@@ -48,19 +46,15 @@ local function FormatTimeRemaining(milliseconds)
     end
 end
 
-
 local function IsValidLocation(x, y, z)
-    -- Check if too close to other apiaries
     for _, coords in pairs(coordsApiaries) do
         local dist = #(vector3(x, y, z) - coords)
         if dist < 2.0 then
             return false
         end
     end
-    
     return true
 end
-
 
 local function PlaceApiary()
     local playerPed = PlayerPedId()
@@ -74,7 +68,6 @@ local function PlaceApiary()
         })
         return 
     end
-    
     
     local offset = 2.0
     local x = pos.x + offset * math.sin(math.rad(-GetEntityHeading(playerPed)))
@@ -94,7 +87,6 @@ local function PlaceApiary()
         return 
     end
     
-   
     if LoadAnimDict(Config.Anim.placingDict) then
         TaskPlayAnim(playerPed, Config.Anim.placingDict, Config.Anim.placingName, 8.0, -1.0, Config.Anim.placingDuration, 0, 0, true, 0, false, 0, false)
         Wait(Config.Anim.placingDuration)
@@ -104,7 +96,6 @@ local function PlaceApiary()
     local entity = CreateObject(apiaryModel.hash, x, y, posZ, true, false, true)
     SetModelAsNoLongerNeeded(apiaryModel.hash)
     
-   
     PlaceObjectOnGroundProperly(entity)
     SetEntityAsMissionEntity(entity, true, true)
     FreezeEntityPosition(entity, true)
@@ -113,7 +104,6 @@ local function PlaceApiary()
     table.insert(activeApiaries, entity)
     table.insert(coordsApiaries, GetEntityCoords(entity))
     
-   
     apiaryData[netId] = {
         materials = false,
         timeStarted = 0,
@@ -121,18 +111,15 @@ local function PlaceApiary()
         honeyframePlaced = 0
     }
     
-		
-		local entityCoords = GetEntityCoords(entity)
-		
-		TriggerServerEvent('rsg-apiary:registerApiary', netId, {
-		x = entityCoords.x,
-		y = entityCoords.y,
-		z = entityCoords.z
-	})
+    local entityCoords = GetEntityCoords(entity)
+    TriggerServerEvent('rsg-apiary:registerApiary', netId, {
+        x = entityCoords.x,
+        y = entityCoords.y,
+        z = entityCoords.z
+    })
     
     return netId
 end
-
 
 local function AddMaterials(entity)
     if collecting then return end
@@ -169,7 +156,6 @@ local function AddMaterials(entity)
     TriggerServerEvent('rsg-apiary:addMaterials', netId)
     collecting = false
 end
-
 
 local function CheckApiaryStatus(entity)
     local netId = ObjToNet(entity)
@@ -228,7 +214,6 @@ local function CheckApiaryStatus(entity)
     lib.showContext('apiary_status_menu')
 end
 
-
 local function CollectHoney(entity)
     if collecting then return end
     collecting = true
@@ -276,7 +261,6 @@ local function CollectHoney(entity)
     collecting = false
 end
 
-
 local function ManageBeeEffect(entity, coords)
     local entityHandle = entity
     local group = Config.BeeParticle.group
@@ -310,14 +294,6 @@ local function StopBeeEffect(entity)
     end
 end
 
-local function StopBeeEffect(hash)
-    if beeEffects[hash] then
-        if Citizen.InvokeNative(0x9DD5AFF561E88F2A, beeEffects[hash]) then
-            Citizen.InvokeNative(0x459598F579C98929, beeEffects[hash], false)
-        end
-        beeEffects[hash] = nil
-    end
-end
 local function PickupApiary(entity)
     if collecting then return end
     collecting = true
@@ -325,17 +301,14 @@ local function PickupApiary(entity)
     local playerPed = PlayerPedId()
     local netId = ObjToNet(entity)
     
-    -- Play pickup animation
     if LoadAnimDict(Config.Anim.placingDict) then
         TaskPlayAnim(playerPed, Config.Anim.placingDict, Config.Anim.placingName, 8.0, -1.0, Config.Anim.placingDuration, 0, 0, true, 0, false, 0, false)
         Wait(Config.Anim.placingDuration)
         ClearPedTasks(playerPed)
     end
     
-    -- Trigger server event to add item to inventory
     TriggerServerEvent('rsg-apiary:pickup', netId)
     
-    -- Clean up local references
     for i, ent in ipairs(activeApiaries) do
         if ent == entity then
             table.remove(activeApiaries, i)
@@ -344,10 +317,7 @@ local function PickupApiary(entity)
         end
     end
     
-    -- Remove bee effect if it exists
     StopBeeEffect(entity)
-    
-    -- Clean up apiary data
     apiaryData[netId] = nil
     
     collecting = false
@@ -399,7 +369,7 @@ local function SetupTarget()
                 return not IsPedOnMount(PlayerPedId()) and not IsPedInAnyVehicle(PlayerPedId())
             end
         },
-		{
+        {
             name = 'pickup_apiary',
             icon = 'fas fa-hand-paper',
             label = 'Pick Up Beehive',
@@ -409,13 +379,17 @@ local function SetupTarget()
             end,
             canInteract = function(entity)
                 local netId = ObjToNet(entity)
-                -- Only allow pickup if the beehive is empty (no materials added)
                 return (not apiaryData[netId] or not apiaryData[netId].materials) and not IsPedOnMount(PlayerPedId()) and not IsPedInAnyVehicle(PlayerPedId())
             end
         }
     })
 end
 
+
+RegisterNetEvent('bandanaStatusChanged')
+AddEventHandler('bandanaStatusChanged', function(status)
+    isWearingBandana = status
+end)
 
 Citizen.CreateThread(function()
     while true do
@@ -433,13 +407,17 @@ Citizen.CreateThread(function()
     end
 end)
 
-
 Citizen.CreateThread(function()
+    local lastBeeStingNotify = 0 
+    local lastDamageTime = 0 
+    
     while true do
-        Wait(1000)
-        local playerCoords = GetEntityCoords(PlayerPedId())
+        Wait(1000) 
+        local playerPed = PlayerPedId()
+        local playerCoords = GetEntityCoords(playerPed)
+        local currentTime = GetGameTimer()
         
-        -- Check all beehives within range
+        
         for _, entity in pairs(activeApiaries) do
             if DoesEntityExist(entity) then
                 local coords = GetEntityCoords(entity)
@@ -448,6 +426,25 @@ Citizen.CreateThread(function()
                 if dist <= Config.BeeDistance then
                     if not beeEffects[entity] then
                         ManageBeeEffect(entity, coords)
+                    end
+                    
+                    if not isWearingBandana and not IsPedOnMount(playerPed) and not IsPedInAnyVehicle(playerPed) then
+                        if currentTime - lastDamageTime >= Config.BeeDamageInterval then
+                            local health = GetEntityHealth(playerPed)
+                            local newHealth = math.max(0, health - Config.BeeDamageAmount)
+                            SetEntityHealth(playerPed, newHealth)
+                            lastDamageTime = currentTime
+                            
+                           
+                            if currentTime - lastBeeStingNotify >= 10000 then
+                                TriggerEvent('ox_lib:notify', {
+                                    type = 'warning',
+                                    title = Config.Text.beekeeper,
+                                    description = Config.Text.bee_sting
+                                })
+                                lastBeeStingNotify = currentTime
+                            end
+                        end
                     end
                 else
                     StopBeeEffect(entity)
@@ -461,11 +458,8 @@ RegisterNetEvent('rsg-apiary:pickupSuccess')
 AddEventHandler('rsg-apiary:pickupSuccess', function(netId)
     local entity = NetToObj(netId)
     if DoesEntityExist(entity) then
-        
         SetEntityAsMissionEntity(entity, true, true)
         DeleteObject(entity)
-        
-        
         TriggerEvent('ox_lib:notify', {
             type = 'success',
             title = Config.Text.beekeeper,
@@ -480,10 +474,8 @@ AddEventHandler('rsg-apiary:registerExistingApiary', function(netId, coords)
     
     local entity = NetworkGetEntityFromNetworkId(netId)
     if not DoesEntityExist(entity) then
-       
         local model = Config.Apiaries[1].model
         local hash = GetHashKey(model)
-        
         
         if not HasModelLoaded(hash) then
             RequestModel(hash)
@@ -494,20 +486,13 @@ AddEventHandler('rsg-apiary:registerExistingApiary', function(netId, coords)
             end
         end
         
-        
         entity = CreateObject(hash, coords[1], coords[2], coords[3], false, false, true)
         SetEntityAsMissionEntity(entity, true, true)
         FreezeEntityPosition(entity, true)
         
-        
         table.insert(activeApiaries, entity)
         table.insert(coordsApiaries, vector3(coords[1], coords[2], coords[3]))
-        
-        
     else
-        
-        
-        
         local alreadyTracked = false
         for _, existingEntity in ipairs(activeApiaries) do
             if existingEntity == entity then
@@ -519,11 +504,9 @@ AddEventHandler('rsg-apiary:registerExistingApiary', function(netId, coords)
         if not alreadyTracked then
             table.insert(activeApiaries, entity)
             table.insert(coordsApiaries, GetEntityCoords(entity))
-           
         end
     end
 end)
-
 
 RegisterNetEvent('rsg-apiary:spawn')
 AddEventHandler('rsg-apiary:spawn', function()
@@ -537,7 +520,6 @@ AddEventHandler('rsg-apiary:spawn', function()
         })
     end
 end)
-
 
 RegisterNetEvent('rsg-apiary:materialAdded')
 AddEventHandler('rsg-apiary:materialAdded', function(netId, honeyframeAmount)
@@ -556,12 +538,10 @@ AddEventHandler('rsg-apiary:materialAdded', function(netId, honeyframeAmount)
     apiaryData[netId].honeyframePlaced = honeyframeAmount
 end)
 
-
 RegisterNetEvent('rsg-apiary:syncApiaries')
 AddEventHandler('rsg-apiary:syncApiaries', function(serverApiaryData)
     for netId, data in pairs(serverApiaryData) do
         if data.timeStarted > 0 then
-          
             local serverElapsedSeconds = os.time() - data.timeStarted
             local clientTimeStarted = GetGameTimer() - (serverElapsedSeconds * 1000)
             
@@ -576,7 +556,6 @@ AddEventHandler('rsg-apiary:syncApiaries', function(serverApiaryData)
         end
     end
 end)
-
 
 RegisterNetEvent('rsg-apiary:delete')
 AddEventHandler('rsg-apiary:delete', function(netId)
@@ -596,7 +575,6 @@ AddEventHandler('rsg-apiary:delete', function(netId)
         apiaryData[netId] = nil
     end
 end)
-
 
 Citizen.CreateThread(function()
     Wait(2000)
