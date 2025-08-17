@@ -3,21 +3,22 @@ Config = {}
 Config.Lang = 'en'
 Config.ApiaryItem = 'beehive' -- Item to trigger barrel placement
 Config.MaxApiaries = 5 -- Maximum number of barrels
-Config.ApiaryRadius = 1 -- Radius for random spawn around player
-Config.InteractDistance = 2.0 -- Distance for ox_target interaction
-Config.BeeDistance = 10.0 -- Distance for bee particle effects
+Config.ApiaryRadius = 1 
+Config.InteractDistance = 2.0 
+Config.BeeDistance = 10.0 
+Config.BeeDamageAmount = 5 
+Config.BeeDamageInterval = 5000 
 
--- Materials needed for honey production
 Config.Materials = {
     { item = 'honeyframe', amount = 2, label = 'honeyframe' }
 }
 
--- Production timer (in minutes)
+
 Config.ProductionTime = 30 -- Time until honey is ready
 
 
 Config.Apiaries = {
-    { name = 'Barrel', hash = 570671881, model = 'p_barrel05b' }
+    { name = 'Barrel', hash = 1839479525, model = 'p_static_barrelcrate01' }
 }
 
 
@@ -38,7 +39,7 @@ Config.Anim = {
 
 
 Config.Rewards = {
-    { item = 'honey', min = 1, max = 3, chance = 100 },
+    { item = 'honey', min = 3, max = 5, chance = 100 },
     
 }
 
@@ -55,5 +56,6 @@ Config.Text = {
     materials_added = 'Materials added to makeshift beehive',
     not_ready = 'Honey is not ready yet',
     invalid_location = 'Cannot place beehive here',
+	bee_sting = 'Ouch! The bees stung you! Wear a bandana to protect yourself.',
     time_remaining = 'Time remaining: %s minutes'
 }
