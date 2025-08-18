@@ -2,7 +2,7 @@ Config = {}
 
 Config.Lang = 'en'
 Config.ApiaryItem = 'beehive' -- Item to trigger barrel placement
-Config.MaxApiaries = 5 -- Maximum number of barrels
+Config.MaxApiaries = 2 -- Maximum number of barrels do not change 
 Config.ApiaryRadius = 1 
 Config.InteractDistance = 2.0 
 Config.BeeDistance = 10.0 
